@@ -1,4 +1,7 @@
 import pyvista as pv
+from networkx.classes.filters import show_edges
+from sympy import true
+
 
 def visualize_particles(Y, output_file='md.gif'):
     """
@@ -13,10 +16,13 @@ def visualize_particles(Y, output_file='md.gif'):
     """
     pl = pv.Plotter()
     sphere = pv.Sphere(radius=0.5)
+    box = pv.Box((-3, 3, -3, 3, -3, 3))
 
-    # Create "actors" for molecules
+    # Create "actors" for molecules and container
     mol1 = pl.add_mesh(sphere, color='red')
     mol2 = pl.add_mesh(sphere, color='blue')
+    container = pl.add_mesh(box, color='black', opacity=0.1, show_edges=True)
+    container_edges = pl.add_mesh(box, style='wireframe', color='black', line_width=2)
 
     # Open gif for animation
     pl.open_gif(output_file)
