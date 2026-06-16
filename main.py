@@ -1,6 +1,4 @@
-# import matplotlib.pyplot as plt
 import numpy as np
-# from matplotlib.pyplot import semilogy
 import visualizer as vs
 
 L = 6
@@ -50,20 +48,21 @@ def derivative(y):
     Returns:
         numpy.ndarray: 4x3 matrix representing time derivative of system state
     """
-    yt = np.zeros((4, 3))
+    yt = np.zeros(y.shape)
+
     # Time derivatives of position values
-    yt[0] = y[2]
-    yt[1] = y[3]
+    yt[0] = y[1]
+    yt[2] = y[3]
 
     # Distance between 2 molecules
-    r = np.subtract(y[0], y[1])
+    r = np.subtract(y[0], y[2])
 
     # Apply minimum image convention
     r = min_image(r, L)
 
     # Time derivative of velocity values
     f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
-    yt[2] = f
+    yt[1] = f
     yt[3] = -f
 
     return yt
@@ -87,7 +86,7 @@ def integrate(y0, delt):
 
 def simulate(y0, tf, delt):
     """
-    Simulate the system dynamics from t = 0 to t = tf using a fixed time step dt
+    Simulate the system dynamics from t = 0 to t = tf using a fixed time step delt
 
     Args:
         y0 (numpy.ndarray): initial 4×3 state matrix
@@ -109,7 +108,7 @@ def simulate(y0, tf, delt):
         # wrap box if particles get out
         for k in range(3):
             y[0][k] = wrap_box(y[0][k], L)
-            y[1][k] = wrap_box(y[1][k], L)
+            y[2][k] = wrap_box(y[2][k], L)
 
     return Y
 
@@ -118,10 +117,10 @@ if __name__ == '__main__':
     r_min = 2 ** (1 / 6)
 
     x1 = np.array([0.5 * (r_min + 0.5), 0, 0])
-    x2 = np.array([-0.5 * (r_min + 0.5), 0, 0])
     v1 = np.array([2, 0, 0])
+    x2 = np.array([-0.5 * (r_min + 0.5), 0, 0])
     v2 = np.array([0, 0, 0])
-    y0 = np.array([x1, x2, v1, v2])
+    y0 = np.array([x1, v1, x2, v2])
     tf = 10
     delt = 0.01
     Y = simulate(y0, tf, delt)
