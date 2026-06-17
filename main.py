@@ -124,4 +124,4 @@ if __name__ == '__main__':
     tf = 10
     delt = 0.01
     Y = simulate(y0, tf, delt)
-    vs.visualize_particles(Y)
+    vs.visualize_particles(Y, delt, 2, L)
