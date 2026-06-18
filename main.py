@@ -43,10 +43,10 @@ def derivative(y):
     Calculate time derivative of molecular state of system
 
     Args:
-        y (numpy.ndarray): initial 4x3 state matrix
+        y (numpy.ndarray): initial state matrix
 
     Returns:
-        numpy.ndarray: 4x3 matrix representing time derivative of system state
+        numpy.ndarray: matrix representing time derivative of system state
     """
     yt = np.zeros(y.shape)
 
@@ -73,11 +73,11 @@ def integrate(y0, delt):
     Calculate new system state after a time step
 
     Args:
-        y0 (numpy.ndarray): initial 4x3 state matrix
+        y0 (numpy.ndarray): initial state matrix
         delt (float): time step
 
     Returns:
-        numpy.ndarray: 4x3 array representing system state at time delt
+        numpy.ndarray: array representing system state at time delt
     """
     y1_pred = np.add(y0, delt * (derivative(y0)))
     y1 = np.add(y0, (delt / 2) * (np.add(derivative(y1_pred), derivative(y0))))
@@ -89,13 +89,12 @@ def simulate(y0, tf, delt):
     Simulate the system dynamics from t = 0 to t = tf using a fixed time step delt
 
     Args:
-        y0 (numpy.ndarray): initial 4×3 state matrix
+        y0 (numpy.ndarray): initial state matrix
         tf (float): final simulation time
         dt (float): simulation time step
 
     Returns:
-        numpy.ndarray: (n+1)x4x3 array where n = tf / dt,
-        the i-th 4×3 matrix contains the system state at time t = i·dt
+        numpy.ndarray: array of system states over time tf each separated by timestep delt
     """
     n = tf / delt
     Y = np.zeros((int(n + 1), 4, 3))
