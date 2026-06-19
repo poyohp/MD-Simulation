@@ -49,7 +49,6 @@ def rel_timestep(Y):
     Returns:
         float: relevant timestep
     """
-    d = 2*radius
     speed_sum = 0
     n = len(Y[0])/2
 
@@ -63,7 +62,7 @@ def rel_timestep(Y):
             speed_sum += np.linalg.norm(Y[half][i])
 
     avg_speed = speed_sum/n
-    timestep = d/avg_speed
+    timestep = radius/avg_speed
     return timestep
 
 def visualize_particles(Y, delt, n, L, output_file='md.gif'):

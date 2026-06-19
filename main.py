@@ -2,7 +2,11 @@ import numpy as np
 import random
 import visualizer as vs
 
+# Box length
 L = 10
+
+# Number of particles
+n = 10
 
 def min_image(r, L):
     """
@@ -119,7 +123,6 @@ if __name__ == '__main__':
     r_min = 2 ** (1 / 6)
     coord_max = L/2
     vel_max = 2
-    n = 3
     y0 = np.zeros((n*2, 3))
 
     for i in range(0, 2*n, 2):
