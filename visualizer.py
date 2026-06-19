@@ -4,6 +4,25 @@ import numpy as np
 radius = 0.5
 pv.global_theme.allow_empty_mesh = True
 
+def clip_box_closed(mesh, bounds):
+    """
+    Perform a closed surface clip on a mesh based on a bounding box
+
+    Args:
+        mesh (pyvista.PolyData): mesh to clip
+        bounds (tuple): bounds to clip the mesh
+
+    Returns:
+        pyvista.PolyData: clipped mesh
+    """
+    mesh = mesh.clip_closed_surface('x', origin=[bounds[0], 0, 0])
+    mesh = mesh.clip_closed_surface('-x', origin=[bounds[1], 0, 0])
+    mesh = mesh.clip_closed_surface('y', origin=[0, bounds[2], 0])
+    mesh = mesh.clip_closed_surface('-y', origin=[0, bounds[3], 0])
+    mesh = mesh.clip_closed_surface('z', origin=[0, 0, bounds[4]])
+    mesh = mesh.clip_closed_surface('-z', origin=[0, 0, bounds[5]])
+    return mesh
+
 def make_sphere(center, speed, bounds):
     """
     Create a pyvista sphere with given center, speed and bounds
@@ -16,7 +35,7 @@ def make_sphere(center, speed, bounds):
     Returns:
         float: relevant timestep
     """
-    sphere = pv.Sphere(radius=radius, center=center).clip_box(bounds, invert=False)
+    sphere = clip_box_closed(pv.Sphere(radius=radius, center=center), bounds)
     sphere["speed"] = np.full(sphere.n_points, speed)
     return sphere
 
