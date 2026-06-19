@@ -44,7 +44,7 @@ def rel_timestep(Y):
             speed_sum += np.linalg.norm(Y[half][i])
 
     avg_speed = speed_sum/n
-    timestep = radius/avg_speed
+    timestep = d/avg_speed
     return timestep
 
 def visualize_particles(Y, delt, n, L, output_file='md.gif'):
@@ -85,24 +85,24 @@ def visualize_particles(Y, delt, n, L, output_file='md.gif'):
     for i in range(len(Y)//ratio):
 
         # Remove actors of previous timestep
-        for k in range(n):
-            if mol_list[k] != 0:
-                pl.remove_actor(mol_list[k])
-            if clone_list[k] != 0:
-                pl.remove_actor(clone_list[k])
+        for j in range(n):
+            if mol_list[j] != 0:
+                pl.remove_actor(mol_list[j])
+            if clone_list[j] != 0:
+                pl.remove_actor(clone_list[j])
 
         mol_list.clear()
         clone_list.clear()
 
-        for k in range(n):
-            pos = Y[i*ratio, 2*k]
-            vel = Y[i*ratio, 2*k + 1]
+        for j in range(n):
+            pos = Y[i*ratio, 2*j]
+            vel = Y[i*ratio, 2*j + 1]
 
             # Update speeds
-            speed_list[k] = np.linalg.norm(vel)
+            speed_list[j] = np.linalg.norm(vel)
 
             # Add new meshes for molecules
-            mol_list.append(pl.add_mesh(make_sphere(pos, speed_list[k], bounds), scalars="speed", clim=(0, 10)))
+            mol_list.append(pl.add_mesh(make_sphere(pos, speed_list[j], bounds), scalars="speed", clim=(0, 10)))
 
             # If the molecules leave the box, create clones
             if (pos[0] + radius > coord_max or pos[1] + radius > coord_max or
@@ -110,13 +110,13 @@ def visualize_particles(Y, delt, n, L, output_file='md.gif'):
                 pos[1] - radius < -coord_max or pos[2] - radius < -coord_max):
 
                 # Set displacement vectors which are the length of the box along the velocity vector
-                if speed_list[k] != 0:
-                    displacement = L * (vel / speed_list[k])
+                if speed_list[j] != 0:
+                    displacement = L * (vel / speed_list[j])
                 else:
                     displacement = np.array([0.0, 0.0, 0.0])
 
                 clone_pos = pos - displacement
-                clone_list.append(pl.add_mesh(make_sphere(clone_pos, speed_list[k], bounds), clim=(0, 10)))
+                clone_list.append(pl.add_mesh(make_sphere(clone_pos, speed_list[j], bounds), clim=(0, 10)))
             else:
                 clone_list.append(0)
 

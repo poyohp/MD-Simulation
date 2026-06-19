@@ -1,7 +1,8 @@
 import numpy as np
+import random
 import visualizer as vs
 
-L = 6
+L = 10
 
 def min_image(r, L):
     """
@@ -50,23 +51,25 @@ def derivative(y):
     """
     yt = np.zeros(y.shape)
 
-    # Time derivatives of position values
-    yt[0] = y[1]
-    yt[2] = y[3]
+    for i in range(0, len(y), 2):
 
-    # Distance between 2 molecules
-    r = np.subtract(y[0], y[2])
+        # Time derivatives of position values
+        yt[i] = y[i + 1]
 
-    # Apply minimum image convention
-    r = min_image(r, L)
+        for j in range(i + 2, len(y), 2):
 
-    # Time derivative of velocity values
-    f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
-    yt[1] = f
-    yt[3] = -f
+            # Distance between 2 molecules
+            r = np.subtract(y[i], y[j])
+
+            # Apply minimum image convention
+            r = min_image(r, L)
+
+            # Time derivative of velocity values
+            f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
+            yt[i + 1] += f
+            yt[j + 1] -= f
 
     return yt
-
 
 def integrate(y0, delt):
     """
@@ -84,7 +87,7 @@ def integrate(y0, delt):
     return y1
 
 
-def simulate(y0, tf, delt):
+def simulate(y0, tf, delt, n):
     """
     Simulate the system dynamics from t = 0 to t = tf using a fixed time step delt
 
@@ -96,8 +99,8 @@ def simulate(y0, tf, delt):
     Returns:
         numpy.ndarray: array of system states over time tf each separated by timestep delt
     """
-    n = tf / delt
-    Y = np.zeros((int(n + 1), 4, 3))
+    timesteps = tf / delt
+    Y = np.zeros((int(timesteps + 1), n*2, 3))
     y = y0
 
     for i in range(len(Y)):
@@ -105,22 +108,25 @@ def simulate(y0, tf, delt):
         y = integrate(y, delt)
 
         # wrap box if particles get out
-        for k in range(3):
-            y[0][k] = wrap_box(y[0][k], L)
-            y[2][k] = wrap_box(y[2][k], L)
+        for j in range(0, len(y), 2):
+            for k in range(3):
+                y[j][k] = wrap_box(y[j][k], L)
 
     return Y
 
 
 if __name__ == '__main__':
     r_min = 2 ** (1 / 6)
+    coord_max = L/2
+    vel_max = 2
+    n = 3
+    y0 = np.zeros((n*2, 3))
 
-    x1 = np.array([0.5 * (r_min + 0.5), 0, 0])
-    v1 = np.array([2, 0, 0])
-    x2 = np.array([-0.5 * (r_min + 0.5), 0, 0])
-    v2 = np.array([0, 0, 0])
-    y0 = np.array([x1, v1, x2, v2])
+    for i in range(0, 2*n, 2):
+        y0[i] = np.array([random.uniform(-coord_max, coord_max), random.uniform(-coord_max, coord_max), random.uniform(-coord_max, coord_max)])
+        y0[i + 1] = np.array([random.uniform(-vel_max, vel_max), random.uniform(-vel_max, vel_max), random.uniform(-vel_max, vel_max)])
+
     tf = 10
     delt = 0.01
-    Y = simulate(y0, tf, delt)
-    vs.visualize_particles(Y, delt, 2, L)
+    Y = simulate(y0, tf, delt, n)
+    vs.visualize_particles(Y, delt, n, L)
