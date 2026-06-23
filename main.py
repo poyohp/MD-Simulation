@@ -11,6 +11,15 @@ n = 10
 # Mass of each particle
 m = 10
 
+# Radius of particles
+radius = 0.5
+
+# Index of position values in state matrix
+pos = 0
+
+# Index of velocity values in state matrix
+vel = 1
+
 def min_image(r, L):
     """
     Apply the minimum image convention
@@ -57,17 +66,18 @@ def derivative(y):
         numpy.ndarray: matrix representing time derivative of system state
     """
     yt = np.zeros(y.shape)
+
+    # Max distance between particles for Leonard-Jones potential to apply
     rc = 3
 
-    for i in range(0, len(y), 2):
+    # Time derivatives of position values
+    yt[pos] = y[vel]
 
-        # Time derivatives of position values
-        yt[i] = y[i + 1]
-
-        for j in range(i + 2, len(y), 2):
+    for i in range(n):
+        for j in range(i + 1, n):
 
             # Distance between 2 molecules
-            r = np.subtract(y[i], y[j])
+            r = np.subtract(y[pos][i], y[pos][j])
 
             # Apply minimum image convention
             r = min_image(r, L)
@@ -75,51 +85,46 @@ def derivative(y):
             # Time derivative of velocity values
             if np.linalg.norm(r) <= rc:
                 f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
-                yt[i + 1] += f
-                yt[j + 1] -= f
+                yt[vel][i] += f
+                yt[vel][j] -= f
 
     return yt
 
-def integrate(y0, delt):
+
+def verlet_integrate(y, delt):
     """
     Calculate new system state after a time step
 
     Args:
-        y0 (numpy.ndarray): initial state matrix
+        y (numpy.ndarray): initial state matrix
         delt (float): time step
 
     Returns:
         numpy.ndarray: array representing system state at time delt
     """
-    f = np.zeros((len(y0)//2, 3))
+    # Get forces for each particle
+    f = derivative(y)[1]
     delt2 = delt/2
     K = 0
 
-    # Get forces for each particle
-    for i in range(len(y0)//2):
-        f[i] = derivative(y0)[2*i + 1]
-
-    # First half update, y0[2*i + 1] is velocity, y0[2*i] is position
-    for i in range(len(y0)//2):
-        y0[2*i + 1] = y0[2*i + 1] + f[i] * delt2 / m
-        y0[2*i] = y0[2*i] + y0[2*i + 1] * delt
+    # First half update
+    y[vel] += f*delt2/m
+    y[pos] += y[vel] * delt
 
     # Update force with first half update
-    for i in range(len(y0)//2):
-        f[i] = derivative(y0)[2*i + 1]
+    f = derivative(y0)[1]
 
     # Second half update
-    for i in range(len(y0)//2):
-        y0[2*i + 1] = y0[2*i + 1] + f[i] * delt2 / m
-        K = K + m * y0[2*i + 1] * y0[2*i + 1] / 2
+    y[vel] += f*delt2/m
+    K += m * np.sum(y[vel] * y[vel] / 2)
 
-    return y0
+    return y
 
-    """
+
+def integrate(y0, delt):
     y1_pred = np.add(y0, delt * (derivative(y0)))
     y1 = np.add(y0, (delt / 2) * (np.add(derivative(y1_pred), derivative(y0))))
     return y1
-    """
 
 
 def simulate(y0, tf, delt, n):
@@ -135,17 +140,17 @@ def simulate(y0, tf, delt, n):
         numpy.ndarray: array of system states over time tf each separated by timestep delt
     """
     timesteps = tf / delt
-    Y = np.zeros((int(timesteps + 1), n*2, 3))
+    Y = np.zeros((int(timesteps + 1), 2, n, 3))
     y = y0
 
     for i in range(len(Y)):
         Y[i] = y
-        y = integrate(y, delt)
+        y = verlet_integrate(y, delt)
 
         # wrap box if particles get out
-        for j in range(0, len(y), 2):
+        for j in range(n):
             for k in range(3):
-                y[j][k] = wrap_box(y[j][k], L)
+                y[pos][j][k] = wrap_box(y[pos][j][k], L)
 
     return Y
 
@@ -154,13 +159,12 @@ if __name__ == '__main__':
     r_min = 2 ** (1 / 6)
     coord_max = L/2
     vel_max = 2
-    y0 = np.zeros((n*2, 3))
+    y0 = np.zeros((2, n, 3))
 
-    for i in range(0, 2*n, 2):
-        y0[i] = np.array([random.uniform(-coord_max, coord_max), random.uniform(-coord_max, coord_max), random.uniform(-coord_max, coord_max)])
-        y0[i + 1] = np.array([random.uniform(-vel_max, vel_max), random.uniform(-vel_max, vel_max), random.uniform(-vel_max, vel_max)])
+    y0[pos] = np.random.uniform(-coord_max, coord_max, size=(n, 3))
+    y0[vel] = np.random.uniform(-vel_max, vel_max, size=(n, 3))
 
     tf = 10
     delt = 0.01
     Y = simulate(y0, tf, delt, n)
-    vs.visualize_particles(Y, delt, n, L)
+    vs.visualize_particles(Y, delt, n, L, pos, vel, radius)
