@@ -8,6 +8,9 @@ L = 10
 # Number of particles
 n = 10
 
+# Mass of each particle
+m = 10
+
 def min_image(r, L):
     """
     Apply the minimum image convention
@@ -54,6 +57,7 @@ def derivative(y):
         numpy.ndarray: matrix representing time derivative of system state
     """
     yt = np.zeros(y.shape)
+    rc = 3
 
     for i in range(0, len(y), 2):
 
@@ -69,9 +73,10 @@ def derivative(y):
             r = min_image(r, L)
 
             # Time derivative of velocity values
-            f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
-            yt[i + 1] += f
-            yt[j + 1] -= f
+            if np.linalg.norm(r) <= rc:
+                f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
+                yt[i + 1] += f
+                yt[j + 1] -= f
 
     return yt
 
@@ -86,9 +91,35 @@ def integrate(y0, delt):
     Returns:
         numpy.ndarray: array representing system state at time delt
     """
+    f = np.zeros((len(y0)//2, 3))
+    delt2 = delt/2
+    K = 0
+
+    # Get forces for each particle
+    for i in range(len(y0)//2):
+        f[i] = derivative(y0)[2*i + 1]
+
+    # First half update, y0[2*i + 1] is velocity, y0[2*i] is position
+    for i in range(len(y0)//2):
+        y0[2*i + 1] = y0[2*i + 1] + f[i] * delt2 / m
+        y0[2*i] = y0[2*i] + y0[2*i + 1] * delt
+
+    # Update force with first half update
+    for i in range(len(y0)//2):
+        f[i] = derivative(y0)[2*i + 1]
+
+    # Second half update
+    for i in range(len(y0)//2):
+        y0[2*i + 1] = y0[2*i + 1] + f[i] * delt2 / m
+        K = K + m * y0[2*i + 1] * y0[2*i + 1] / 2
+
+    return y0
+
+    """
     y1_pred = np.add(y0, delt * (derivative(y0)))
     y1 = np.add(y0, (delt / 2) * (np.add(derivative(y1_pred), derivative(y0))))
     return y1
+    """
 
 
 def simulate(y0, tf, delt, n):
