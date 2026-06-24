@@ -25,17 +25,13 @@ def min_image(r, L):
     Apply the minimum image convention
 
     Args:
-        r (numpy.ndarray): 3D vector seperation between molecules
+        r (numpy.ndarray): Array containing 3D vector separations between molecules
         L (int): box width
 
     Returns:
         numpy.ndarray: separation with minimum image convention
     """
-    for i in range(len(r)):
-        if r[i] > L / 2:
-            r[i] -= L
-        elif r[i] < -L / 2:
-            r[i] += L
+    r = np.where(r > L/2, r - L, np.where(r < L/2, r + L, r))
     return r
 
 def wrap_box(x, L):
@@ -66,6 +62,9 @@ def derivative(y):
         numpy.ndarray: matrix representing time derivative of system state
     """
     yt = np.zeros(y.shape)
+    horizontal = np.s_[np.newaxis, :, :]
+    vertical = np.s_[:, np.newaxis, :]
+    make_coordinate = np.s_[:, :, np.newaxis]
 
     # Max distance between particles for Leonard-Jones potential to apply
     rc = 3
@@ -73,27 +72,29 @@ def derivative(y):
     # Time derivatives of position values
     yt[pos] = y[vel]
 
-    for i in range(n):
-        for j in range(i + 1, n):
+    # Broadcast into 3x3x3 arrays to cover all molecule combinations
+    r = np.subtract(y[pos][vertical], y[pos][horizontal])
 
-            # Distance between 2 molecules
-            r = np.subtract(y[pos][i], y[pos][j])
+    # Apply minimum image convention
+    r = min_image(r, L)
 
-            # Apply minimum image convention
-            r = min_image(r, L)
+    # Produce nxn array representing dot products of all particles separations with themselves
+    r2 = np.sum(r**2, axis=2)
+    r2[np.diag_indices_from(r2)] = 1
 
-            # Time derivative of velocity values
-            if np.linalg.norm(r) <= rc:
-                f = 6 * (2 * np.dot(r, r) ** (-7) - (np.dot(r, r)) ** (-4)) * r
-                yt[vel][i] += f
-                yt[vel][j] -= f
+    # Produce nxn array representing forces acting on each molecule due to separations with other molecules
+    f = 6*(2*r2**(-7) - r2**(-4))
+    f[np.diag_indices_from(f)] = 0
+    f = f[make_coordinate]*r
+
+    # Sum forces along the rows to get net force on each particles
+    yt[vel] = np.sum(f, axis=1)
 
     return yt
 
-
 def verlet_integrate(y, delt):
     """
-    Calculate new system state after a time step
+    Calculate new system state after a time step using velocity verlet method
 
     Args:
         y (numpy.ndarray): initial state matrix
@@ -122,6 +123,16 @@ def verlet_integrate(y, delt):
 
 
 def integrate(y0, delt):
+    """
+        Calculate new system state after a time step
+
+        Args:
+            y0 (numpy.ndarray): initial state matrix
+            delt (float): time step
+
+        Returns:
+            numpy.ndarray: array representing system state at time delt
+    """
     y1_pred = np.add(y0, delt * (derivative(y0)))
     y1 = np.add(y0, (delt / 2) * (np.add(derivative(y1_pred), derivative(y0))))
     return y1
