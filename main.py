@@ -9,7 +9,7 @@ L = 10
 n = 10
 
 # Mass of each particle
-m = 10
+m = 1
 
 # Radius of particles
 radius = 0.5
@@ -19,6 +19,17 @@ pos = 0
 
 # Index of velocity values in state matrix
 vel = 1
+
+# Boltzmann constant (reduced LJ units)
+kb = 1
+
+# Max distance between particles for Leonard-Jones potential to apply
+rc = 3
+
+# Temperature of system
+temp = 1.0
+
+random.seed()
 
 def min_image(r, L):
     """
@@ -51,12 +62,86 @@ def wrap_box(x, L):
         x += L
     return x
 
-def derivative(y):
+def compute_temperature(vel):
+    """
+    Compute temperature of system
+
+    Args:
+        vel (numpy.ndarray): Array containing 3D vector particle velocities
+
+    Returns:
+        float: temperature of system
+    """
+    N = len(vel)
+    KE = 0.5 * np.sum(vel**2)
+
+    # Derived from equipartition formula
+    T = (2 * KE) / (3 * N * kb)
+
+    return T
+
+def lowe_ander_thermo(r, vel, delt):
+    """
+    Apply Lowe-Anderson thermostat to system
+
+    Args:
+        r (numpy.ndarray): Array containing 3D vector separations between particles
+        vel (numpy.ndarray): Array containing 3D vector particle velocities
+        delt (float): time step
+
+    Returns:
+        numpy.ndarray: Array containing 3D vector particle velocities with thermostat applied
+    """
+    nu = 0.1
+    dist = np.linalg.norm(r, axis=2)
+
+    # i and j are nd arrays that together store indexes that contain values between 0 and rc
+    # i represents indexes of first particles, j represents indexes of second
+    (i, j) = np.where((dist < rc) & (dist > 0))
+
+    # Only consider upper triangular portion of dist to remove duplicates
+    upper_triangular = i < j
+    i = i[upper_triangular]
+    j = j[upper_triangular]
+
+    # Take values in r and dist that fit requirements, note that filtered arrays have 1 fewer dimension than the originals
+    r_filtered = r[i, j]
+    dist_filtered = dist[i, j]
+
+    # Obtain array of normalized separation vectors
+    normalized_r = r_filtered/dist_filtered[:, np.newaxis]
+
+    # Get difference in velocity for particle pairs that satisfy 0 < separation < rc
+    v_diff = vel[j] - vel[i]
+
+    # Elementwise multiplication and addition along the rows acts as row-wise dot products
+    v_rel_old = np.sum(v_diff * normalized_r, axis=1)
+
+    # Draw new velocities from Maxwell-Boltzmann distribution
+    v_rel_new = np.random.normal(0, np.sqrt(temp), size=len(i))
+
+    # Lowe-Andersen collision condition
+    collide = np.random.rand(len(i)) < (nu * delt)
+
+    # Only apply changes on colliding particles
+    delta_v_scalar = np.zeros(v_rel_old.shape)
+    delta_v_scalar[collide] = v_rel_new[collide] - v_rel_old[collide]
+    delta_v = delta_v_scalar[:, np.newaxis] * normalized_r
+
+    # Update velocities
+    vel[i] -= 0.5 * delta_v
+    vel[j] += 0.5 * delta_v
+
+    return vel
+
+
+def derivative(y, return_r=False):
     """
     Calculate time derivative of molecular state of system
 
     Args:
         y (numpy.ndarray): initial state matrix
+        return_r (bool): option to skip taking the derivative and return particle separations
 
     Returns:
         numpy.ndarray: matrix representing time derivative of system state
@@ -65,9 +150,6 @@ def derivative(y):
     horizontal = np.s_[np.newaxis, :, :]
     vertical = np.s_[:, np.newaxis, :]
     make_coordinate = np.s_[:, :, np.newaxis]
-
-    # Max distance between particles for Leonard-Jones potential to apply
-    rc = 3
 
     # Time derivatives of position values
     yt[pos] = y[vel]
@@ -78,16 +160,23 @@ def derivative(y):
     # Apply minimum image convention
     r = min_image(r, L)
 
+    r = np.where(r >= rc, rc + 1, r)
+
+    if return_r:
+        return r
+
     # Produce nxn array representing dot products of all particles separations with themselves
     r2 = np.sum(r**2, axis=2)
-    r2[np.diag_indices_from(r2)] = 1
+    r2[np.diag_indices_from(r2)] = rc + 1
 
     # Produce nxn array representing forces acting on each molecule due to separations with other molecules
-    f = 6*(2*r2**(-7) - r2**(-4))
-    f[np.diag_indices_from(f)] = 0
+    f = np.where(r2 != rc + 1, 6*(2*r2**(-7) - r2**(-4)), r2)
+    f = np.where(f == rc + 1, 0, f)
+
+    # Extend nxn array to nxnx3 to represent vectors
     f = f[make_coordinate]*r
 
-    # Sum forces along the rows to get net force on each particles
+    # Sum forces along the rows to get net force on each particle
     yt[vel] = np.sum(f, axis=1)
 
     return yt
@@ -113,11 +202,15 @@ def verlet_integrate(y, delt):
     y[pos] += y[vel] * delt
 
     # Update force with first half update
-    f = derivative(y0)[1]
+    f = derivative(y)[1]
 
     # Second half update
     y[vel] += f*delt2/m
     K += m * np.sum(y[vel] * y[vel] / 2)
+
+    y[vel] = lowe_ander_thermo(derivative(y, True), y[vel], delt)
+
+    print("Temperature:", compute_temperature(y[vel]))
 
     return y
 
